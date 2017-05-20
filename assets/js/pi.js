@@ -52,6 +52,7 @@ $(function() {
 
 });
 
+var ds = oilarra.dark_sky;
 var urls = {
 	'api':			'http://[HUEIP]/api/[HUEUSER]/lights/',
 	'group0onoff':	'http://[HUEIP]/api/[HUEUSER]/groups/0/action',
@@ -59,11 +60,10 @@ var urls = {
 	'sensor':		'http://[HUEIP]/api/[HUEUSER]/sensors/22',
 	'bedonoff':		'http://[HUEIP]/api/[HUEUSER]/groups/6/action',
 	'bedstate':		'http://[HUEIP]/api/[HUEUSER]/groups/6/',
-	'tado':			'https://my.tado.com/api/v2/homes/[HOMEID]/zones/1/state?username=[USERNAME]&password=[PASSWORD]',
 	'tv':			'http://[TVIP]:1925/1/input/key',
 	'watchtv':		'http://[TVIP]:1925/1/sources/current',
 	'tvon':			'http://[TVIP]:1925/1/ambilight/measured',
-	'weatherData':	'https://api.darksky.net/forecast/[YOURKEY]/[YOURLATITUDE],[YOURLONGITUDE]?units=uk2&callback=?'
+	'weatherData':	'https://api.darksky.net/forecast/'+ds.api_key+'/'+ds.longitude+','+ds.latitude+'?units='+ds.units+'&callback=?'
 }
 var moons = {
 	'new':		'<i class="wi wi-moon-alt-new"></i> New Moon',
@@ -101,7 +101,6 @@ var pi = {
 		window.addEventListener('contextmenu', function(e) { e.preventDefault(); })
 		pi.time();
 		pi.weather();
-		pi.tado();
 		pi.tvstatus();
 		pi.hue();
 		setInterval( function() {
@@ -109,7 +108,6 @@ var pi = {
 			pi.tvstatus();
 		}, 2000);
 		setInterval( function() {
-			pi.tado();
 			pi.weather();
 		}, 3600000);
 	},
@@ -227,20 +225,6 @@ var pi = {
                         pred += '<small><dt>weather data <i class="wi wi-time-3"></i> '+moment.unix(weather.currently.time).format('h:mm a')+'</small></dt>';
 			
 			$('#weather').html(pred);
-
-		});
-	},
-	tado: function() {
-		$.getJSON(urls.tado, function(data){
-			var current = data.sensorDataPoints.insideTemperature.celsius,
-				setto = data.setting.temperature.celsius,
-				tpercentage = (current / setto)*100;
-			$('#tado').html('<dt><div id="tadop" class="progress alert" role="progressbar" tabindex="0" data-set="'+setto+'"><span class="progress-meter" style="width: '+tpercentage+'%"><p class="progress-meter-text"><i class="wi wi-barometer"></i> tado&deg; ' + current + '<i class="wi wi-celsius"></i></p></span></div></dt>');
-			$.getJSON(urls.sensor, function(data){
-				var motion = parseFloat(data.state.temperature) / 100,
-					hpercentage = (motion / setto)*100;
-				$('#hue').html('<dt><div class="progress alert" role="progressbar" tabindex="0"><span class="progress-meter" style="width: '+hpercentage+'%"><p class="progress-meter-text"><i class="hue-SML001"></i> '+ motion.toFixed(2) + '<i class="wi wi-celsius"></i></p></span></div></dt>');
-			});
 
 		});
 	},

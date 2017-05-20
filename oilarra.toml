@@ -1,0 +1,7 @@
+listen_address = "0.0.0.0:8080"
+
+[dark_sky]
+api_key = "c07d16e1307c72d204ff630523f3b010"
+longitude = "37.9557922"
+latitude = "-122.2747448"
+units = "us"
