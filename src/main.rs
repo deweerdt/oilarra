@@ -4,6 +4,11 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
+#[macro_use]
+extern crate nickel;
+
+use nickel::{Nickel, Mountable, StaticFilesHandler};
+
 use std::fs::File;
 use std::process::exit;
 use std::io::{Error, ErrorKind, Read};
@@ -27,10 +32,21 @@ fn read_config(path: &str) -> Result<Config, Error> {
 
 fn main() {
     let config = read_config("oilarra.toml");
-    if config.is_err() {
-        println!("{}", config.err().unwrap());
+    if let Err(err) = config {
+        println!("{}", err);
         exit(1);
     }
-    let config = config.unwrap();
-    println!("{:?}", config);
+    let mut config = config.unwrap();
+    if config.listen_address == None {
+        config.listen_address = Some(String::from("0.0.0.0:8080"));
+    }
+    let mut server = Nickel::new();
+    server.mount("/", StaticFilesHandler::new("assets/"));
+
+    server.mount("/",
+                 middleware! { |req|
+        let path = req.path_without_query().unwrap();
+        format!("Not found '{}'!", path)
+    });
+    server.listen(config.listen_address.unwrap());
 }
