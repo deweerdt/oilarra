@@ -1,18 +1,20 @@
 extern crate toml;
 extern crate serde;
-
+extern crate daemonize;
+extern crate rouille;
+extern crate clap;
+#[macro_use]
+extern crate log;
 #[macro_use]
 extern crate serde_derive;
-
-extern crate rouille;
+extern crate env_logger;
 
 use rouille::Response;
-
 use std::fs::File;
 use std::process::exit;
 use std::io::{Error, ErrorKind, Read};
-
-
+use clap::{Arg, App};
+use daemonize::Daemonize;
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -39,16 +41,58 @@ fn read_config(path: &str) -> Result<Config, Error> {
 }
 
 fn main() {
-    let config = read_config("oilarra.toml");
-    if let Err(err) = config {
-        println!("{}", err);
-        exit(1);
-    }
-    let config = config.unwrap();
+    env_logger::init().expect("Failed to init logger");
+
+    let matches = App::new("Oilarra")
+        .version("0.0.1")
+        .author("Frederik Deweerdt")
+        .about("a clock app")
+        .arg(Arg::with_name("config_file")
+                 .short("c")
+                 .long("config")
+                 .value_name("FILE")
+                 .help("Path to the oilarra.toml config file")
+                 .takes_value(true)
+                 .required(false))
+        .arg(Arg::with_name("daemonize")
+                 .short("d")
+                 .long("daemonize")
+                 .help("daemonize server")
+                 .takes_value(false)
+                 .required(false))
+        .get_matches();
+
+    let config_file = match matches.value_of("config_file") {
+        None => {
+            error!("A path to the configuration file is required");
+            exit(1);
+        }
+        Some(config_file) => config_file,
+    };
+    let daemonize = matches.is_present("daemonize");
+    println!("d:{}", daemonize);
+    let config = match read_config(config_file) {
+        Ok(config) => config,
+        Err(err) => {
+            error!("Error reading `{}` config file: {}", config_file, err);
+            exit(1);
+        }
+    };
 
     let mut listen_address = String::new();
     listen_address.push_str(&config.listen_address);
 
+    if daemonize {
+        let daemonize = Daemonize::new()
+            .pid_file("/tmp/oilarra.pid")
+            .chown_pid_file(true)
+            .working_directory(".");
+
+        match daemonize.start() {
+            Ok(_) => info!("Success, daemonized"),
+            Err(e) => error!("{}", e),
+        }
+    }
     rouille::start_server(listen_address, move |request| {
         let response = rouille::match_assets(&request, "./assets");
 
