@@ -18,28 +18,6 @@ $(function() {
 		});
 	});
 
-	$('.button-group').on('click', '#bed.off', function(){
-		$.ajax({
-			type: 'PUT',
-			url: urls.bedonoff,
-			data: '{"on": true, "bri": 100, "hue":65280}'
-		});
-
-	});
-
-	$('.button-group').on('click', '#bed.on', function(){
-		$.ajax({
-			type: 'PUT',
-			url: urls.bedonoff,
-			data: '{"on": false}'
-		});
-		$.ajax({
-			type: 'PUT',
-			url: urls.api+'3/state',
-			data: '{"on": false}'
-		});
-	});
-
 	$('#brightness-less').on('click', function(){
 		$(this).removeClass('on');
 		$.ajax({
@@ -109,11 +87,9 @@ var pi = {
 		window.addEventListener('contextmenu', function(e) { e.preventDefault(); })
 		pi.time();
 		pi.weather();
-		pi.tvstatus();
 		pi.hue();
 		setInterval( function() {
 			pi.hue();
-			pi.tvstatus();
 		}, 2000);
 		setInterval( function() {
 			pi.weather();
@@ -133,15 +109,6 @@ var pi = {
 			$('body').removeClass('day').addClass('night');
 			$('.button').addClass('hollow');
 		}
-	},
-	tvstatus: function() {
-		$.getJSON(urls.watchtv, function(data){
-
-		}).done(function() {
-			$('#tv').addClass('on');
-		}).fail(function() {
-			$('#tv').removeClass('on');
-		});
 	},
 	weather: function() {
 		$.getJSON(urls.weatherData, function(weather){

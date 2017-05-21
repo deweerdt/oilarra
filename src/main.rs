@@ -19,9 +19,7 @@ use env_logger::LogBuilder;
 use log::{LogRecord, LogLevelFilter};
 use rouille::Response;
 use std::env;
-use std::error::Error;
-use std::process::Command;
-use std::fs::File;
+use std::fs::{File,OpenOptions};
 use std::io::{Error as IOError, ErrorKind, Read, Write};
 use std::process::exit;
 
@@ -29,6 +27,7 @@ use std::process::exit;
 #[derive(Debug, Deserialize)]
 struct Config {
     listen_address: String,
+    home_dir: String,
     dark_sky: DarkSkyConfig,
 }
 
@@ -61,41 +60,49 @@ fn read_config(path: &str) -> Result<Config, IOError> {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 enum Brightness {
     Less,
     More,
 }
 
 fn cur_brightness() -> Result<usize, &'static str> {
-    let mut fd = File::open("/sys/class/backlight/rpi_backlight/brightness");
+    let fd = File::open("/sys/class/backlight/rpi_backlight/brightness");
     if fd.is_err() {
         return Err("failed to open brightness file");
     }
     let mut curb = String::new();
-    fd.unwrap().read_to_string(&mut curb);
-    match curb.parse::<usize>() {
+    if fd.unwrap().read_to_string(&mut curb).is_err() {
+        return Err("failed to read file");
+    }
+    match curb.trim().parse::<usize>() {
         Ok(n) => Ok(n),
         Err(_) => Err("failed to parse integer"),
     }
 }
 
 fn set_brightness(n: usize) -> Result<(), &'static str> {
-    let mut fd = File::open("/sys/class/backlight/rpi_backlight/brightness");
+    let mut options = OpenOptions::new();
+    options.write(true);
+    let path = "/sys/class/backlight/rpi_backlight/brightness";
+    let fd = options.open(path);
     if fd.is_err() {
         return Err("failed to open brightness file");
     }
-    match fd.unwrap().write_all(format!("{}", n).as_bytes()) {
+    match fd.unwrap().write_all(format!("{}\n", n).as_bytes()) {
         Ok(_) => Ok(()),
         Err(_) => Err("failed to set brightness"),
     }
 }
 
 fn update_brightness(b: Brightness) -> Result<(), &'static str> {
+    info!("Updating brightness: {:?}", b);
     let cb = cur_brightness()?;
     if b == Brightness::Less {
-        if cb >= 5 {
+        if cb >= 16 {
             set_brightness(cb - 5)?;
+        } else {
+            set_brightness(11)?;
         }
     } else {
         if cb <= 250 {
@@ -160,7 +167,7 @@ fn main() {
         let daemonize = Daemonize::new()
             .pid_file("/tmp/oilarra.pid")
             .chown_pid_file(true)
-            .working_directory(".");
+            .working_directory(&config.home_dir);
 
         match daemonize.start() {
             Ok(_) => info!("Success, daemonized"),
@@ -220,10 +227,17 @@ fn main() {
                     jr.msg = String::from(format!("{}", e));
                 }
                 Ok(jbr) => {
-                    if jbr.brightness == "less" {
-                        update_brightness(Brightness::Less);
+                    let r = if jbr.brightness == "less" {
+                        update_brightness(Brightness::Less)
                     } else {
-                        update_brightness(Brightness::More);
+                        update_brightness(Brightness::More)
+                    };
+                    match r {
+                        Ok(_) => (),
+                        Err(e) => {
+                            jr.err = true;
+                            jr.msg = String::from(format!("{}", e));
+                        },
                     }
                 }
             };
