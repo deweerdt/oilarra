@@ -3,3 +3,8 @@
     - standalone rust web app
     - config file
       - dark skies api
+  - v2
+    - cross compile linux -> raspbian
+    - brightness buttons
+      - gui
+      - rust

@@ -70,7 +70,7 @@ var urls = {
 	'sensor':		'http://[HUEIP]/api/[HUEUSER]/sensors/22',
 	'bedonoff':		'http://[HUEIP]/api/[HUEUSER]/groups/6/action',
 	'bedstate':		'http://[HUEIP]/api/[HUEUSER]/groups/6/',
-	'brightness':   '//brightness',
+	'brightness':   '/brightness',
 	'weatherData':	'https://api.darksky.net/forecast/'+ds.api_key+'/'+ds.longitude+','+ds.latitude+'?units='+ds.units+'&callback=?'
 }
 var moons = {

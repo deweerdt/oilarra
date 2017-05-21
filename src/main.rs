@@ -1,3 +1,5 @@
+#![feature(io)]
+
 extern crate clap;
 extern crate daemonize;
 extern crate rouille;
@@ -17,8 +19,10 @@ use env_logger::LogBuilder;
 use log::{LogRecord, LogLevelFilter};
 use rouille::Response;
 use std::env;
+use std::error::Error;
+use std::process::Command;
 use std::fs::File;
-use std::io::{Error, ErrorKind, Read};
+use std::io::{Error as IOError, ErrorKind, Read, Write};
 use std::process::exit;
 
 
@@ -41,14 +45,64 @@ struct JSONResponse {
     err: bool,
     msg: String,
 }
-fn read_config(path: &str) -> Result<Config, Error> {
+
+#[derive(Debug, Serialize, Deserialize)]
+struct JSONBrightness {
+    brightness: String,
+}
+
+fn read_config(path: &str) -> Result<Config, IOError> {
     let mut fd = File::open(path)?;
     let mut toml = String::new();
     fd.read_to_string(&mut toml)?;
     match toml::from_str(&toml) {
         Ok(config) => Ok(config),
-        Err(e) => Err(Error::new(ErrorKind::Other, e)),
+        Err(e) => Err(IOError::new(ErrorKind::Other, e)),
     }
+}
+
+#[derive(PartialEq)]
+enum Brightness {
+    Less,
+    More,
+}
+
+fn cur_brightness() -> Result<usize, &'static str> {
+    let mut fd = File::open("/sys/class/backlight/rpi_backlight/brightness");
+    if fd.is_err() {
+        return Err("failed to open brightness file");
+    }
+    let mut curb = String::new();
+    fd.unwrap().read_to_string(&mut curb);
+    match curb.parse::<usize>() {
+        Ok(n) => Ok(n),
+        Err(_) => Err("failed to parse integer"),
+    }
+}
+
+fn set_brightness(n: usize) -> Result<(), &'static str> {
+    let mut fd = File::open("/sys/class/backlight/rpi_backlight/brightness");
+    if fd.is_err() {
+        return Err("failed to open brightness file");
+    }
+    match fd.unwrap().write_all(format!("{}", n).as_bytes()) {
+        Ok(_) => Ok(()),
+        Err(_) => Err("failed to set brightness"),
+    }
+}
+
+fn update_brightness(b: Brightness) -> Result<(), &'static str> {
+    let cb = cur_brightness()?;
+    if b == Brightness::Less {
+        if cb >= 5 {
+            set_brightness(cb - 5)?;
+        }
+    } else {
+        if cb <= 250 {
+            set_brightness(cb + 5)?;
+        }
+    }
+    Ok(())
 }
 
 fn main() {
@@ -119,6 +173,7 @@ fn main() {
     rouille::start_server(listen_address, move |request| {
         let response = rouille::match_assets(&request, "./assets");
 
+        info!("url:{}", request.url());
         if response.is_success() {
             return response;
         }
@@ -141,9 +196,36 @@ fn main() {
         }
 
         if request.url() == "/brightness" {
-            let jr = JSONResponse {
+            let mut jr = JSONResponse {
                 err: false,
                 msg: "".to_owned(),
+            };
+            let body = match request.data() {
+                Some(body) => {
+                    body.chars()
+                        .map(|c| match c {
+                                 Ok(c) => c,
+                                 _ => ' ',
+                             })
+                        .collect::<String>()
+                }
+                _ => String::new(),
+            };
+
+            info!("{}", body);
+            let brightness: Result<JSONBrightness, serde_json::Error> = serde_json::from_str(&body);
+            match brightness {
+                Err(ref e) => {
+                    jr.err = true;
+                    jr.msg = String::from(format!("{}", e));
+                }
+                Ok(jbr) => {
+                    if jbr.brightness == "less" {
+                        update_brightness(Brightness::Less);
+                    } else {
+                        update_brightness(Brightness::More);
+                    }
+                }
             };
             let response = Response::from_data("application/json",
                                                serde_json::to_string(&jr).unwrap());
