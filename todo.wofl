@@ -4,7 +4,12 @@
     - config file
       - dark skies api
   - v2
-    - cross compile linux -> raspbian
+    - cross compile linux -> raspbian, https://hackernoon.com/compiling-rust-for-the-raspberry-pi-49fdcd7df658
     - brightness buttons
       - gui
       - rust
+  - v3
+    - better weather display
+      - unclutter
+      - present week ahead
+    - replace the brightness buttons with a slide

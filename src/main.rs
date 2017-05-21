@@ -19,6 +19,7 @@ use env_logger::LogBuilder;
 use log::{LogRecord, LogLevelFilter};
 use rouille::Response;
 use std::env;
+use std::path::Path;
 use std::fs::{File,OpenOptions};
 use std::io::{Error as IOError, ErrorKind, Read, Write};
 use std::process::exit;
@@ -163,6 +164,13 @@ fn main() {
     let mut listen_address = String::new();
     listen_address.push_str(&config.listen_address);
 
+    let mut home_dir = String::new();
+    home_dir.push_str(&config.home_dir);
+    let workdir = Path::new(&home_dir);
+    if let Err(err) = env::set_current_dir(&workdir) {
+        error!("Error chanding to directory `{}`: {}", config.home_dir, err);
+        exit(1);
+    }
     if daemonize {
         let daemonize = Daemonize::new()
             .pid_file("/tmp/oilarra.pid")
@@ -171,12 +179,13 @@ fn main() {
 
         match daemonize.start() {
             Ok(_) => info!("Success, daemonized"),
-            Err(e) => error!("{}", e),
+            Err(e) => {
+                error!("{}", e);
+                exit(1);
+            }
         }
     }
-    if !daemonize {
-        info!("Starting server");
-    }
+    info!("Starting server: {}", listen_address);
     rouille::start_server(listen_address, move |request| {
         let response = rouille::match_assets(&request, "./assets");
 

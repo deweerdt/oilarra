@@ -1,4 +1,5 @@
 listen_address = "0.0.0.0:8080"
+home_dir = "."
 
 [dark_sky]
 api_key = "c07d16e1307c72d204ff630523f3b010"
