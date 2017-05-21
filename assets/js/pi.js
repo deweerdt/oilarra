@@ -40,13 +40,23 @@ $(function() {
 		});
 	});
 
-	$('#tv').on('click', function(){
+	$('#brightness-less').on('click', function(){
 		$(this).removeClass('on');
 		$.ajax({
 			type: 'POST',
 			dataType: 'json',
-			url: urls.tv,
-			data: '{"key": "Standby"}'
+			url: urls.brightness,
+			data: '{"brightness": "less"}'
+		});
+	});
+
+	$('#brightness-more').on('click', function(){
+		$(this).removeClass('on');
+		$.ajax({
+			type: 'POST',
+			dataType: 'json',
+			url: urls.brightness,
+			data: '{"brightness": "more"}'
 		});
 	});
 
@@ -60,9 +70,7 @@ var urls = {
 	'sensor':		'http://[HUEIP]/api/[HUEUSER]/sensors/22',
 	'bedonoff':		'http://[HUEIP]/api/[HUEUSER]/groups/6/action',
 	'bedstate':		'http://[HUEIP]/api/[HUEUSER]/groups/6/',
-	'tv':			'http://[TVIP]:1925/1/input/key',
-	'watchtv':		'http://[TVIP]:1925/1/sources/current',
-	'tvon':			'http://[TVIP]:1925/1/ambilight/measured',
+	'brightness':   '//brightness',
 	'weatherData':	'https://api.darksky.net/forecast/'+ds.api_key+'/'+ds.longitude+','+ds.latitude+'?units='+ds.units+'&callback=?'
 }
 var moons = {

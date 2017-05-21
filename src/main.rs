@@ -1,20 +1,26 @@
-extern crate toml;
-extern crate serde;
+extern crate clap;
 extern crate daemonize;
 extern crate rouille;
-extern crate clap;
+extern crate serde;
+extern crate serde_json;
+extern crate toml;
+
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate serde_derive;
 extern crate env_logger;
 
-use rouille::Response;
-use std::fs::File;
-use std::process::exit;
-use std::io::{Error, ErrorKind, Read};
 use clap::{Arg, App};
 use daemonize::Daemonize;
+use env_logger::LogBuilder;
+use log::{LogRecord, LogLevelFilter};
+use rouille::Response;
+use std::env;
+use std::fs::File;
+use std::io::{Error, ErrorKind, Read};
+use std::process::exit;
+
 
 #[derive(Debug, Deserialize)]
 struct Config {
@@ -30,6 +36,11 @@ struct DarkSkyConfig {
     units: String,
 }
 
+#[derive(Serialize, Deserialize)]
+struct JSONResponse {
+    err: bool,
+    msg: String,
+}
 fn read_config(path: &str) -> Result<Config, Error> {
     let mut fd = File::open(path)?;
     let mut toml = String::new();
@@ -41,7 +52,16 @@ fn read_config(path: &str) -> Result<Config, Error> {
 }
 
 fn main() {
-    env_logger::init().expect("Failed to init logger");
+    let format = |record: &LogRecord| format!("{} - {}", record.level(), record.args());
+
+    let mut builder = LogBuilder::new();
+    builder.format(format).filter(None, LogLevelFilter::Info);
+
+    if env::var("RUST_LOG").is_ok() {
+        builder.parse(&env::var("RUST_LOG").unwrap());
+    }
+
+    builder.init().unwrap();
 
     let matches = App::new("Oilarra")
         .version("0.0.1")
@@ -70,7 +90,7 @@ fn main() {
         Some(config_file) => config_file,
     };
     let daemonize = matches.is_present("daemonize");
-    println!("d:{}", daemonize);
+
     let config = match read_config(config_file) {
         Ok(config) => config,
         Err(err) => {
@@ -92,6 +112,9 @@ fn main() {
             Ok(_) => info!("Success, daemonized"),
             Err(e) => error!("{}", e),
         }
+    }
+    if !daemonize {
+        info!("Starting server");
     }
     rouille::start_server(listen_address, move |request| {
         let response = rouille::match_assets(&request, "./assets");
@@ -117,6 +140,15 @@ fn main() {
             return response;
         }
 
+        if request.url() == "/brightness" {
+            let jr = JSONResponse {
+                err: false,
+                msg: "".to_owned(),
+            };
+            let response = Response::from_data("application/json",
+                                               serde_json::to_string(&jr).unwrap());
+            return response;
+        }
         Response::html("404 error. Try <a href=\"/README.md\"`>README.md</a> or \
                         <a href=\"/src/lib.rs\">src/lib.rs</a> for example.")
                 .with_status_code(404)
