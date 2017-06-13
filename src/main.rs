@@ -20,7 +20,7 @@ use log::{LogRecord, LogLevelFilter};
 use rouille::Response;
 use std::env;
 use std::path::Path;
-use std::fs::{File,OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{Error as IOError, ErrorKind, Read, Write};
 use std::process::exit;
 
@@ -103,7 +103,7 @@ fn update_brightness(b: Brightness) -> Result<(), &'static str> {
         if cb >= 16 {
             set_brightness(cb - 5)?;
         } else {
-            set_brightness(11)?;
+            set_brightness(10)?;
         }
     } else {
         if cb <= 250 {
@@ -246,7 +246,7 @@ fn main() {
                         Err(e) => {
                             jr.err = true;
                             jr.msg = String::from(format!("{}", e));
-                        },
+                        }
                     }
                 }
             };
